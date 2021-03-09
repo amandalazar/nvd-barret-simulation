@@ -27,8 +27,8 @@ WorldInfo {
   ]
 }
 Viewpoint {
-  orientation -0.02106362941034234 0.9883806421109459 0.15053248757799204 3.016310380527866
-  position -0.1990154194722793 21.018857570645643 -40.662155635305574
+  orientation 0.016433847166984115 -0.9731659466098861 -0.22951681643438807 3.1821573356513277
+  position -2.8157506228520797 15.419528192253416 -27.333735429250083
   near 1
   follow "moose"
 }
@@ -78,6 +78,10 @@ DEF PLANE Solid {
   name "plane"
   boundingObject USE PLANE_SHAPE
 }
+CardboardBox {
+  translation -3 7 -9
+  size 1 1 1
+}
 BuildingUnderConstruction {
   translation 13 0 39
   rotation 0 1 0 -2.0944003061004253
@@ -88,6 +92,7 @@ Pedestrian {
     "--trajectory=-2.5 30, -4.5 30"
   ]
   shirtColor 0.990417 0.500267 0.0328679
+  enableBoundingObject TRUE
 }
 Pedestrian {
   translation -3.1 1.27 29.3
@@ -96,6 +101,7 @@ Pedestrian {
     "--trajectory=-3.1 29.3, -5.1 29.3"
   ]
   shirtColor 0.990417 0.500267 0.0328679
+  enableBoundingObject TRUE
 }
 Pedestrian {
   translation -3.2 1.27 30.7
@@ -104,6 +110,7 @@ Pedestrian {
     "--trajectory=-3.2 30.7, -5.2 30.7"
   ]
   shirtColor 0.990417 0.500267 0.0328679
+  enableBoundingObject TRUE
 }
 Pedestrian {
   translation -3.9 1.27 30
@@ -112,15 +119,85 @@ Pedestrian {
     "--trajectory=-3.9 30, -5.9 30"
   ]
   shirtColor 0.990417 0.500267 0.0328679
-}
-WoodenPalletStack {
-  translation -4 1.8 16
+  enableBoundingObject TRUE
 }
 Moose {
   translation -7.334202170180788 7.717722754844717 -6.427717293600236
   rotation -0.24470655790626383 0.9522324249327 -0.1826803476689766 0.3586029853467997
   controller "moose_path_following"
   bodySlot [
+    DistanceSensor {
+      translation 1.4 0 0
+      rotation 0 1 0 -0.13090030610042527
+      children [
+        DEF sensor Shape {
+          appearance PBRAppearance {
+            baseColor 0 1 1
+            transparency 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
+        }
+      ]
+      name "dist_sensor_front"
+      boundingObject USE sensor
+      physics Physics {
+      }
+      lookupTable [
+        0 0 0
+        3.5 10 0
+      ]
+    }
+    DistanceSensor {
+      translation 1.4 0.5 0
+      rotation 0.7071067811865475 0 0.7071067811865475 1.0617996938995746
+      children [
+        DEF sensor Shape {
+          appearance PBRAppearance {
+            baseColor 0 1 1
+            transparency 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
+        }
+      ]
+      name "dist_sensor_left"
+      boundingObject USE sensor
+      physics Physics {
+      }
+      lookupTable [
+        0 0 0
+        2 10 0
+      ]
+    }
+    DistanceSensor {
+      translation 1.4 -0.5 0
+      rotation 0.7071067811865475 0 0.7071067811865475 -1.0618
+      children [
+        DEF sensor Shape {
+          appearance PBRAppearance {
+            baseColor 0 1 1
+            transparency 1
+            metalness 0
+          }
+          geometry Box {
+            size 0.2 0.2 0.2
+          }
+        }
+      ]
+      name "dist_sensor_right"
+      boundingObject USE sensor
+      physics Physics {
+      }
+      lookupTable [
+        0 0 0
+        2 10 0
+      ]
+    }
     Compass {
       rotation 1 0 0 1.5707996938995747
     }

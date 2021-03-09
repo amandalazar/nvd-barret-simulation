@@ -21,12 +21,14 @@
 #include <webots/keyboard.h>
 #include <webots/motor.h>
 #include <webots/robot.h>
+#include <webots/distance_sensor.h>
 
-#define TIME_STEP 16
+#define TIME_STEP 16 // In ms
 #define TARGET_POINTS_SIZE 13
 #define DISTANCE_TOLERANCE 1.5
 #define MAX_SPEED 7.0
 #define TURN_COEFFICIENT 4.0
+#define MAX_DIST_RANGE 10.0
 
 enum XYZAComponents { X, Y, Z, ALPHA };
 enum Sides { LEFT, RIGHT };
@@ -39,6 +41,9 @@ typedef struct _Vector {
 static WbDeviceTag motors[8];
 static WbDeviceTag gps;
 static WbDeviceTag compass;
+static WbDeviceTag dist_sensor_front;
+static WbDeviceTag dist_sensor_left;
+static WbDeviceTag dist_sensor_right;
 
 static Vector targets[TARGET_POINTS_SIZE] = {
   {-4.209318, -9.147717}, {0.946812, -9.404304},  {0.175989, 1.784311},   {-2.805353, 8.829694},  {-3.846730, 15.602851},
@@ -50,6 +55,7 @@ static int current_target_index = 0;
 static bool autopilot = true;
 static bool old_autopilot = true;
 static int old_key = -1;
+static bool object_detected = false;
 
 static double modulus_double(double a, double m) {
   int div_i = (int)(a / m);
@@ -117,6 +123,21 @@ static void check_keyboard() {
 
   robot_set_speed(speeds[LEFT], speeds[RIGHT]);
   old_key = key;
+}
+
+static void check_obstacles() {
+  double dist_front = wb_distance_sensor_get_value(dist_sensor_front);
+  double dist_left = wb_distance_sensor_get_value(dist_sensor_left);
+  double dist_right = wb_distance_sensor_get_value(dist_sensor_right);
+
+  // Stop when obstacle is near
+  if (dist_front < MAX_DIST_RANGE || dist_left < MAX_DIST_RANGE || dist_right < MAX_DIST_RANGE) {
+    printf("Stopping...\n");
+    robot_set_speed(0.0, 0.0);
+    object_detected = true;
+  } else {
+    object_detected = false;
+  }
 }
 
 // ||v||
@@ -221,6 +242,14 @@ int main(int argc, char *argv[]) {
   compass = wb_robot_get_device("compass");
   wb_compass_enable(compass, TIME_STEP);
 
+  // get distance sensors tags and enable
+  dist_sensor_front = wb_robot_get_device("dist_sensor_front");
+  wb_distance_sensor_enable(dist_sensor_front, TIME_STEP);
+  dist_sensor_left = wb_robot_get_device("dist_sensor_left");
+  wb_distance_sensor_enable(dist_sensor_left, TIME_STEP);
+  dist_sensor_right = wb_robot_get_device("dist_sensor_right");
+  wb_distance_sensor_enable(dist_sensor_right, TIME_STEP);
+
   // enable keyboard
   wb_keyboard_enable(TIME_STEP);
 
@@ -229,8 +258,9 @@ int main(int argc, char *argv[]) {
 
   // main loop
   while (wb_robot_step(TIME_STEP) != -1) {
+    check_obstacles();
     check_keyboard();
-    if (autopilot)
+    if (autopilot && !object_detected)
       run_autopilot();
   }
 
