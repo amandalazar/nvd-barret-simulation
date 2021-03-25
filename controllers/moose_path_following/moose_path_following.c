@@ -22,6 +22,7 @@
 #include <webots/motor.h>
 #include <webots/robot.h>
 #include <webots/distance_sensor.h>
+#include <webots/camera.h>
 
 #define TIME_STEP 16 // In ms
 #define TARGET_POINTS_SIZE 13
@@ -44,6 +45,7 @@ static WbDeviceTag compass;
 static WbDeviceTag dist_sensor_front;
 static WbDeviceTag dist_sensor_left;
 static WbDeviceTag dist_sensor_right;
+static WbDeviceTag camera;
 
 static Vector targets[TARGET_POINTS_SIZE] = {
   {-4.209318, -9.147717}, {0.946812, -9.404304},  {0.175989, 1.784311},   {-2.805353, 8.829694},  {-3.846730, 15.602851},
@@ -249,6 +251,10 @@ int main(int argc, char *argv[]) {
   wb_distance_sensor_enable(dist_sensor_left, TIME_STEP);
   dist_sensor_right = wb_robot_get_device("dist_sensor_right");
   wb_distance_sensor_enable(dist_sensor_right, TIME_STEP);
+
+  camera = wb_robot_get_device("camera");
+  wb_camera_enable(camera, TIME_STEP);
+  wb_camera_recognition_enable(camera, TIME_STEP);
 
   // enable keyboard
   wb_keyboard_enable(TIME_STEP);
