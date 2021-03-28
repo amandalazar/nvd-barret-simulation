@@ -27,8 +27,8 @@ WorldInfo {
   ]
 }
 Viewpoint {
-  orientation -0.13378920461024044 -0.9568324610433747 -0.2580156782512227 2.130499840405566
-  position -47.59352729453258 12.715478524953909 9.132832735547506
+  orientation -0.15044069487188994 -0.942068467058319 -0.2997909283164713 2.1812925112734844
+  position -43.548347614964605 12.932026108407623 9.377381727867283
   near 1
   follow "moose"
 }
@@ -98,7 +98,8 @@ Pedestrian {
   translation -29.1 1.27 19.5
   name "pedestrian(4)"
   controllerArgs [
-    "--trajectory=-29.1 19.5, -29.1 25"
+    "--speed=1.5"
+    "--trajectory=-29.1 19.5, -29.1 35, -2.5 35"
   ]
   shirtColor 0.741634 1 0.121187
   skinColor 0.6 0.4 0.2
@@ -143,6 +144,7 @@ Moose {
       width 640
       height 640
       recognition Recognition {
+        maxRange 5
         maxObjects 1
         frameThickness 3
       }

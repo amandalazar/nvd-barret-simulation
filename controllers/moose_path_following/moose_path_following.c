@@ -23,6 +23,7 @@
 #include <webots/robot.h>
 #include <webots/distance_sensor.h>
 #include <webots/camera.h>
+#include <webots/camera_recognition_object.h>
 
 #define TIME_STEP 16 // In ms
 #define TARGET_POINTS_SIZE 2
@@ -52,8 +53,9 @@ static Vector targets[TARGET_POINTS_SIZE] = {
 
 };
 static int current_target_index = 0;
-static bool autopilot = true;
-static bool old_autopilot = true;
+static bool autopilot = false;
+static bool old_autopilot = false;
+static bool follow_me_mode = true;
 static int old_key = -1;
 static bool object_detected = false;
 
@@ -109,7 +111,14 @@ static void check_keyboard() {
         break;
       case 'A':
         if (key != old_key)  // perform this action just once
+          follow_me_mode = false;
           autopilot = !autopilot;
+        break;
+      case 'F':
+        if (key != old_key) {  // perform this action just once
+          autopilot = false;
+          follow_me_mode = !follow_me_mode;
+        }
         break;
     }
   }
@@ -211,6 +220,38 @@ static void run_autopilot() {
   robot_set_speed(speeds[LEFT], speeds[RIGHT]);
 }
 
+static void run_follow_me_mode() {
+  WbCameraRecognitionObject detectedObject = wb_camera_recognition_get_objects(camera)[0];
+  // printf("Position on image: (%d, %d)\n", detectedObject.position_on_image[0], detectedObject.position_on_image[1]);
+  // printf("Size on image: (%d, %d)\n", detectedObject.size_on_image[0], detectedObject.size_on_image[1]);
+
+  // prepare the speed array
+  double speeds[2] = {0.0, 0.0};
+
+  int viewedHeight = detectedObject.size_on_image[1];
+  int viewedHorizantalDisplacement = detectedObject.position_on_image[0];
+
+  if (wb_camera_recognition_get_number_of_objects(camera) == 1) {
+    if (viewedHeight < 320) {
+      // Move forward
+      speeds[LEFT] = MAX_SPEED;
+      speeds[RIGHT] = MAX_SPEED;
+    }
+    if (viewedHorizantalDisplacement < 300) {
+      // Move right
+      speeds[LEFT] = -MAX_SPEED;
+      speeds[RIGHT] = MAX_SPEED;
+    } else if (viewedHorizantalDisplacement > 340) {
+      // Move left
+      speeds[LEFT] = MAX_SPEED;
+      speeds[RIGHT] = -MAX_SPEED;
+    }
+
+    // set the motor speeds
+    robot_set_speed(speeds[LEFT], speeds[RIGHT]);
+  }
+}
+
 int main(int argc, char *argv[]) {
   // initialize webots communication
   wb_robot_init();
@@ -266,6 +307,8 @@ int main(int argc, char *argv[]) {
     check_keyboard();
     if (autopilot && !object_detected)
       run_autopilot();
+    else if (follow_me_mode)
+      run_follow_me_mode();
   }
 
   wb_robot_cleanup();
