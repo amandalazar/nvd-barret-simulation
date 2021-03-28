@@ -125,7 +125,13 @@ class Pedestrian (Supervisor):
                     break
 
             distance_ratio = 0
-            if i == 0:
+            if i == self.number_of_waypoints - 1:
+                # Set body position to a default for all body parts
+                for i in range(0, self.BODY_PARTS_NUMBER):
+                    self.joints_position_field[i].setSFFloat(self.angles[i][0])
+                # Break to halt the controller, since final destination has been reached
+                break
+            elif i == 0:
                 distance_ratio = relative_distance / self.waypoints_distance[0]
             else:
                 distance_ratio = (relative_distance - self.waypoints_distance[i - 1]) / \
