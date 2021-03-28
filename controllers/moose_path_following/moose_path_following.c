@@ -29,6 +29,7 @@
 #define TARGET_POINTS_SIZE 2
 #define DISTANCE_TOLERANCE 1.5
 #define MAX_SPEED 7.0
+#define WALKING_SPEED 5.0
 #define TURN_COEFFICIENT 4.0
 #define MAX_DIST_RANGE 10.0
 
@@ -234,17 +235,17 @@ static void run_follow_me_mode() {
   if (wb_camera_recognition_get_number_of_objects(camera) == 1) {
     if (viewedHeight < 320) {
       // Move forward
-      speeds[LEFT] = MAX_SPEED;
-      speeds[RIGHT] = MAX_SPEED;
+      speeds[LEFT] = WALKING_SPEED;
+      speeds[RIGHT] = WALKING_SPEED;
     }
     if (viewedHorizantalDisplacement < 300) {
       // Move right
-      speeds[LEFT] = -MAX_SPEED;
-      speeds[RIGHT] = MAX_SPEED;
+      speeds[LEFT] = -WALKING_SPEED;
+      speeds[RIGHT] = WALKING_SPEED;
     } else if (viewedHorizantalDisplacement > 340) {
       // Move left
-      speeds[LEFT] = MAX_SPEED;
-      speeds[RIGHT] = -MAX_SPEED;
+      speeds[LEFT] = WALKING_SPEED;
+      speeds[RIGHT] = -WALKING_SPEED;
     }
 
     // set the motor speeds
