@@ -27,8 +27,8 @@ WorldInfo {
   ]
 }
 Viewpoint {
-  orientation 0.005440872847737628 -0.946974838565885 -0.3212616566379668 3.1030976367126395
-  position -6.903688409678632 15.6102156836807 -15.979560832343573
+  orientation -0.12914355429854518 -0.9549166894380398 -0.2673126607847696 2.190482663093042
+  position -27.72053496098077 20.182862251762486 -20.590873295553706
   near 1
   follow "moose"
 }
@@ -663,6 +663,17 @@ Robot {
     "--trajectory=-2.5 30, -4.5 30"
   ]
   supervisor TRUE
+}
+Pedestrian {
+  translation -2.7 8 -6.8
+  rotation 0 1 0 1.83
+  name "pedestrian(4)"
+  controller "follow_me_pedestrian"
+  controllerArgs [
+    "--trajectory=-2.7 -6.8, -4.7 -6.8"
+  ]
+  shirtColor 0.13135 0.99968 0.023621
+  enableBoundingObject TRUE
 }
 Pedestrian {
   translation -3.1 1.27 29.3

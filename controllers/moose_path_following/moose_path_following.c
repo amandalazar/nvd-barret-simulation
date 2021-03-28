@@ -25,7 +25,7 @@
 #include <webots/camera.h>
 
 #define TIME_STEP 16 // In ms
-#define TARGET_POINTS_SIZE 13
+#define TARGET_POINTS_SIZE 2
 #define DISTANCE_TOLERANCE 1.5
 #define MAX_SPEED 7.0
 #define TURN_COEFFICIENT 4.0
@@ -48,9 +48,7 @@ static WbDeviceTag dist_sensor_right;
 static WbDeviceTag camera;
 
 static Vector targets[TARGET_POINTS_SIZE] = {
-  {-4.209318, -9.147717}, {0.946812, -9.404304},  {0.175989, 1.784311},   {-2.805353, 8.829694},  {-3.846730, 15.602851},
-  {-4.394915, 24.550777}, {-1.701877, 33.617226}, {-4.394915, 24.550777}, {-3.846730, 15.602851}, {-2.805353, 8.829694},
-  {0.175989, 1.784311},   {0.946812, -9.404304},  {-7.930821, -6.421292}
+  {-19.229250, 36.587086},  {-6.498424, 36.625717}
 
 };
 static int current_target_index = 0;
