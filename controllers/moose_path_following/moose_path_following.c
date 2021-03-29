@@ -32,6 +32,12 @@
 #define WALKING_SPEED 5.0
 #define TURN_COEFFICIENT 4.0
 #define MAX_DIST_RANGE 10.0
+#define FOLLOW_ME_HEIGHT_THRESHOLD 175
+#define FOLLOW_ME_LEFT_THRESHOLD 300
+#define FOLLOW_ME_RIGHT_THRESHOLD 340
+#define ONE_SECOND_IN_TIME_STEPS 1000.0 / TIME_STEP
+#define FIVE_SECONDS_IN_TIME_STEPS 5000.0 / TIME_STEP
+#define MAX_FOLLOW_ME_PATH_DURATION 100 // In s
 
 enum XYZAComponents { X, Y, Z, ALPHA };
 enum Sides { LEFT, RIGHT };
@@ -49,16 +55,17 @@ static WbDeviceTag dist_sensor_left;
 static WbDeviceTag dist_sensor_right;
 static WbDeviceTag camera;
 
-static Vector targets[TARGET_POINTS_SIZE] = {
-  {-19.229250, 36.587086},  {-6.498424, 36.625717}
-
-};
+static Vector follow_me_path[MAX_FOLLOW_ME_PATH_DURATION];
 static int current_target_index = 0;
 static bool autopilot = false;
 static bool old_autopilot = false;
 static bool follow_me_mode = true;
 static int old_key = -1;
 static bool object_detected = false;
+static int elapsed_time_steps = 0;
+static int follow_me_path_index = -1;
+static int follow_me_path_size;
+static int follow_me_complete_counter = 0;
 
 static double modulus_double(double a, double m) {
   int div_i = (int)(a / m);
@@ -76,6 +83,20 @@ static void robot_set_speed(double left, double right) {
     wb_motor_set_velocity(motors[i + 0], left);
     wb_motor_set_velocity(motors[i + 4], right);
   }
+}
+
+static bool is_robot_stopped() {
+  bool stopped = true;
+  int i;
+  for (i = 0; i < 4; i++) {
+    double left_velocity = wb_motor_get_velocity(motors[i + 0]);
+    double right_velocity = wb_motor_get_velocity(motors[i + 4]);
+    if (left_velocity > 0.0 || right_velocity > 0.0)
+      stopped = false;
+      break;
+  }
+
+  return stopped;
 }
 
 static void check_keyboard() {
@@ -142,9 +163,11 @@ static void check_obstacles() {
 
   // Stop when obstacle is near
   if (dist_front < MAX_DIST_RANGE || dist_left < MAX_DIST_RANGE || dist_right < MAX_DIST_RANGE) {
-    printf("Stopping...\n");
-    robot_set_speed(0.0, 0.0);
-    object_detected = true;
+    if (!object_detected) {
+      printf("Stopping...\n");
+      robot_set_speed(0.0, 0.0);
+      object_detected = true;
+    }
   } else {
     object_detected = false;
   }
@@ -176,6 +199,7 @@ static double angle(const Vector *v1, const Vector *v2) {
 
 // autopilot
 // pass trough the predefined target positions
+// TODO: Alter function to wait for some keyboard input to continue moving after reaching back to point A
 static void run_autopilot() {
   // prepare the speed array
   double speeds[2] = {0.0, 0.0};
@@ -191,7 +215,7 @@ static void run_autopilot() {
 
   // compute the direction and the distance to the target
   Vector dir;
-  minus(&dir, &(targets[current_target_index]), &pos);
+  minus(&dir, &(follow_me_path[current_target_index]), &pos);
   double distance = norm(&dir);
   normalize(&dir);
 
@@ -200,16 +224,12 @@ static void run_autopilot() {
 
   // a target position has been reached
   if (distance < DISTANCE_TOLERANCE) {
-    char index_char[3] = "th";
-    if (current_target_index == 0)
-      sprintf(index_char, "st");
-    else if (current_target_index == 1)
-      sprintf(index_char, "nd");
-    else if (current_target_index == 2)
-      sprintf(index_char, "rd");
-    printf("%d%s target reached\n", current_target_index + 1, index_char);
-    current_target_index++;
-    current_target_index %= TARGET_POINTS_SIZE;
+    printf("Target %d reached\n", current_target_index + 1);
+    current_target_index--;
+    if (current_target_index < 0)
+      current_target_index = follow_me_path_size - 1;
+    // TODO: Figure out how original controller runs through target array forwards then backwards,
+    // while mine runs through follow_me_path array backwards then backwards again
   }
   // move the robot to the next target
   else {
@@ -223,8 +243,6 @@ static void run_autopilot() {
 
 static void run_follow_me_mode() {
   WbCameraRecognitionObject detectedObject = wb_camera_recognition_get_objects(camera)[0];
-  // printf("Position on image: (%d, %d)\n", detectedObject.position_on_image[0], detectedObject.position_on_image[1]);
-  // printf("Size on image: (%d, %d)\n", detectedObject.size_on_image[0], detectedObject.size_on_image[1]);
 
   // prepare the speed array
   double speeds[2] = {0.0, 0.0};
@@ -233,16 +251,16 @@ static void run_follow_me_mode() {
   int viewedHorizantalDisplacement = detectedObject.position_on_image[0];
 
   if (wb_camera_recognition_get_number_of_objects(camera) == 1) {
-    if (viewedHeight < 320) {
+    if (viewedHeight < FOLLOW_ME_HEIGHT_THRESHOLD) {
       // Move forward
       speeds[LEFT] = WALKING_SPEED;
       speeds[RIGHT] = WALKING_SPEED;
     }
-    if (viewedHorizantalDisplacement < 300) {
+    if (viewedHorizantalDisplacement < FOLLOW_ME_LEFT_THRESHOLD) {
       // Move right
       speeds[LEFT] = -WALKING_SPEED;
       speeds[RIGHT] = WALKING_SPEED;
-    } else if (viewedHorizantalDisplacement > 340) {
+    } else if (viewedHorizantalDisplacement > FOLLOW_ME_RIGHT_THRESHOLD) {
       // Move left
       speeds[LEFT] = WALKING_SPEED;
       speeds[RIGHT] = -WALKING_SPEED;
@@ -250,6 +268,28 @@ static void run_follow_me_mode() {
 
     // set the motor speeds
     robot_set_speed(speeds[LEFT], speeds[RIGHT]);
+
+    if (is_robot_stopped()) {
+      if (follow_me_complete_counter >= FIVE_SECONDS_IN_TIME_STEPS) {
+        follow_me_path_size = follow_me_path_index;
+        current_target_index = follow_me_path_size - 1;
+        autopilot = true;
+      }
+      follow_me_complete_counter++;
+    } else {
+      follow_me_complete_counter = 0;
+
+      if (elapsed_time_steps >= ONE_SECOND_IN_TIME_STEPS) {
+        // Every second that passes by in active follow-me mode, save the current position
+        const double *pos3D = wb_gps_get_values(gps);
+        printf("Saving current position: {%f, %f}\n", pos3D[X], pos3D[Z]);
+        Vector currPosition = { .u = pos3D[X], .v = pos3D[Z] };
+        follow_me_path[++follow_me_path_index] = currPosition;
+        elapsed_time_steps = 0;
+      } else {
+        elapsed_time_steps++;
+      }
+    }
   }
 }
 
@@ -308,7 +348,7 @@ int main(int argc, char *argv[]) {
     check_keyboard();
     if (autopilot && !object_detected)
       run_autopilot();
-    else if (follow_me_mode)
+    else if (follow_me_mode && !object_detected)
       run_follow_me_mode();
   }
 
