@@ -16,6 +16,7 @@
 
 #include <math.h>
 #include <stdio.h>
+#include <unistd.h>
 #include <webots/compass.h>
 #include <webots/gps.h>
 #include <webots/keyboard.h>
@@ -25,7 +26,7 @@
 #include <webots/camera.h>
 #include <webots/camera_recognition_object.h>
 
-#define TIME_STEP 16 // In ms
+#define TIME_STEP 16 /* In ms */
 #define TARGET_POINTS_SIZE 2
 #define DISTANCE_TOLERANCE 1.5
 #define MAX_SPEED 7.0
@@ -36,8 +37,8 @@
 #define FOLLOW_ME_LEFT_THRESHOLD 300
 #define FOLLOW_ME_RIGHT_THRESHOLD 340
 #define ONE_SECOND_IN_TIME_STEPS 1000.0 / TIME_STEP
-#define FIVE_SECONDS_IN_TIME_STEPS 5000.0 / TIME_STEP
-#define MAX_FOLLOW_ME_PATH_DURATION 100 // In s
+#define TWO_SECONDS_IN_TIME_STEPS 2000.0 / TIME_STEP
+#define MAX_FOLLOW_ME_PATH_DURATION 100 /* In s */
 
 enum XYZAComponents { X, Y, Z, ALPHA };
 enum Sides { LEFT, RIGHT };
@@ -60,12 +61,15 @@ static int current_target_index = 0;
 static bool autopilot = false;
 static bool old_autopilot = false;
 static bool follow_me_mode = true;
+static bool autonomy_complete = false;
 static int old_key = -1;
 static bool object_detected = false;
 static int elapsed_time_steps = 0;
 static int follow_me_path_index = -1;
 static int follow_me_path_size;
 static int follow_me_complete_counter = 0;
+static int autonomy_complete_counter = 0;
+static bool instructions_printed = false;
 
 static double modulus_double(double a, double m) {
   int div_i = (int)(a / m);
@@ -147,7 +151,7 @@ static void check_keyboard() {
   if (autopilot != old_autopilot) {
     old_autopilot = autopilot;
     if (autopilot)
-      printf("auto control\n");
+      printf("Autonomous control commenced...\n");
     else
       printf("manual control\n");
   }
@@ -164,7 +168,7 @@ static void check_obstacles() {
   // Stop when obstacle is near
   if (dist_front < MAX_DIST_RANGE || dist_left < MAX_DIST_RANGE || dist_right < MAX_DIST_RANGE) {
     if (!object_detected) {
-      printf("Stopping...\n");
+      printf("OBSTACLE DETECTED: Stopping...\n");
       robot_set_speed(0.0, 0.0);
       object_detected = true;
     }
@@ -201,6 +205,11 @@ static double angle(const Vector *v1, const Vector *v2) {
 // pass trough the predefined target positions
 // TODO: Alter function to wait for some keyboard input to continue moving after reaching back to point A
 static void run_autopilot() {
+  if (autonomy_complete && autonomy_complete_counter < TWO_SECONDS_IN_TIME_STEPS) {
+    autonomy_complete_counter++;
+    return;
+  }
+
   // prepare the speed array
   double speeds[2] = {0.0, 0.0};
 
@@ -224,7 +233,16 @@ static void run_autopilot() {
 
   // a target position has been reached
   if (distance < DISTANCE_TOLERANCE) {
-    printf("Target %d reached\n", current_target_index + 1);
+    if (current_target_index == 0) {
+      printf("Final target reached! Stopping and waiting to be loaded before proceeding back along mapped path...\n");
+
+      // Sleep while stopped for a small amount of time to complete follow-me demo (TODO: Remove this)
+      speeds[LEFT] = 0.0;
+      speeds[RIGHT] = 0.0;
+      autonomy_complete = true;
+    }
+    else
+      printf("Target #%d reached\n", current_target_index + 1);
     current_target_index--;
     if (current_target_index < 0)
       current_target_index = follow_me_path_size - 1;
@@ -270,7 +288,7 @@ static void run_follow_me_mode() {
     robot_set_speed(speeds[LEFT], speeds[RIGHT]);
 
     if (is_robot_stopped()) {
-      if (follow_me_complete_counter >= FIVE_SECONDS_IN_TIME_STEPS) {
+      if (follow_me_complete_counter >= TWO_SECONDS_IN_TIME_STEPS) {
         follow_me_path_size = follow_me_path_index;
         current_target_index = follow_me_path_size - 1;
         autopilot = true;
@@ -282,9 +300,9 @@ static void run_follow_me_mode() {
       if (elapsed_time_steps >= ONE_SECOND_IN_TIME_STEPS) {
         // Every second that passes by in active follow-me mode, save the current position
         const double *pos3D = wb_gps_get_values(gps);
-        printf("Saving current position: {%f, %f}\n", pos3D[X], pos3D[Z]);
+        printf("Saving current position #%d: {%f, %f}\n", ++follow_me_path_index + 1, pos3D[X], pos3D[Z]);
         Vector currPosition = { .u = pos3D[X], .v = pos3D[Z] };
-        follow_me_path[++follow_me_path_index] = currPosition;
+        follow_me_path[follow_me_path_index] = currPosition;
         elapsed_time_steps = 0;
       } else {
         elapsed_time_steps++;
@@ -294,15 +312,10 @@ static void run_follow_me_mode() {
 }
 
 int main(int argc, char *argv[]) {
+  printf("Initializing robot...\n");
+
   // initialize webots communication
   wb_robot_init();
-
-  // print user instructions
-  printf("You can drive this robot:\n");
-  printf("Select the 3D window and use cursor keys:\n");
-  printf("Press 'A' to return to the autopilot mode\n");
-  printf("Press 'P' to get the robot position\n");
-  printf("\n");
 
   wb_robot_step(1000);
 
@@ -344,6 +357,10 @@ int main(int argc, char *argv[]) {
 
   // main loop
   while (wb_robot_step(TIME_STEP) != -1) {
+    if (!instructions_printed) {
+      printf("Starting follow-me mode...\n");
+      instructions_printed = true;
+    }
     check_obstacles();
     check_keyboard();
     if (autopilot && !object_detected)
